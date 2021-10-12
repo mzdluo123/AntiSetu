@@ -12,7 +12,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.awt.image.BufferedImage
 import java.awt.image.PixelGrabber
+import java.io.ByteArrayInputStream
 import java.lang.IllegalArgumentException
+import java.nio.ByteBuffer
 import javax.imageio.ImageIO
 
 object Detector {
@@ -20,13 +22,14 @@ object Detector {
     private val client by lazy {
         OkHttpClient()
     }
-
     suspend fun detector(img: Image): Float {
-        val bufferedImage = withContext(Dispatchers.IO) {
-            downloadImg(img)
-        } ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
+        val imageContent = downloadImg(img)
+        return detector(imageContent)
+    }
+
+    suspend fun detector(content: ByteArray): Float {
         val output = withContext(Dispatchers.Default) {
-            val scaled = scaleImg(bufferedImage)
+            val scaled = scaleImg(ImageIO.read(ByteArrayInputStream(content)))
             val inputArray = arrayOf(imageToMatrix(scaled))
             PluginMain.session.run(
                 mapOf(
@@ -37,15 +40,15 @@ object Detector {
                 )
             )
         }
-
         return processOutput(output)
+
 
     }
 
     private fun processOutput(result: OrtSession.Result): Float {
 
-    val scoreTensor = result.first().value.value as Array<*>
-    val score = scoreTensor[0] as FloatArray
+        val scoreTensor = result.first().value.value as Array<*>
+        val score = scoreTensor[0] as FloatArray
         return score[1]
     }
 
@@ -85,12 +88,14 @@ object Detector {
     }
 
 
-    private suspend fun downloadImg(img: Image): BufferedImage? {
-        val req = Request.Builder().get().url(img.queryUrl()).build()
-        val rsp = client.newCall(req).execute()
-        if (rsp.isSuccessful) {
-            return ImageIO.read(rsp.body?.byteStream())
-        }
-        return null
+     suspend fun downloadImg(img: Image): ByteArray {
+        return withContext(Dispatchers.IO) {
+            val req = Request.Builder().get().url(img.queryUrl()).build()
+             val rsp = client.newCall(req).execute()
+             if (rsp.isSuccessful) {
+                 return@withContext rsp.body?.byteStream()?.readAllBytes() ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
+             }
+            throw IllegalArgumentException("无法下载图片${img.imageId}")
+         }
     }
 }
