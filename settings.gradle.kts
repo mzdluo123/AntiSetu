@@ -6,4 +6,4 @@ pluginManagement {
         maven("https://dl.bintray.com/kotlin/kotlin-eap")
     }
 }
-rootProject.name = "mirai-console-plugin-template"
+rootProject.name = "AntiSetu"
