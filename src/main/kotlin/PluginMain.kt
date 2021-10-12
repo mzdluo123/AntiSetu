@@ -48,7 +48,7 @@ object PluginMain : KotlinPlugin(
         logger.info("初始化成功")
         GlobalEventChannel.subscribeGroupMessages {
             always {
-                val processType = Config.enabledGroup[group.id]
+                val processType = Config.enabledGroup[group.id] ?: Config.ProcessType.DISABLED
                 if (processType == Config.ProcessType.DISABLED){
                     return@always
                 }
