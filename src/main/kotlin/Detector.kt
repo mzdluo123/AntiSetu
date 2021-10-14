@@ -126,7 +126,7 @@ object Detector {
     }
 
     private suspend fun downloadPart(url: String, start: Int, end: Int, retry: Int = 0): ByteArray {
-        PluginMain.logger.info("download bytes=${start}-${end}")
+      //  PluginMain.logger.info("download bytes=${start}-${end}")
         if (retry > 3) {
             throw IllegalArgumentException("无法下载图片${url},bytes=${start}-${end}")
         }
