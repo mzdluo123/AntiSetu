@@ -89,6 +89,7 @@ object Detector {
 
 
      suspend fun downloadImg(img: Image): ByteArray {
+         PluginMain.logger.error(img.queryUrl())
         return withContext(Dispatchers.IO) {
             val req = Request.Builder().get().url(img.queryUrl()).build()
              val rsp = client.newCall(req).execute()

@@ -11,7 +11,8 @@ object Config:AutoSavePluginConfig("config") {
         RECALL,
         DOWNLOAD_RECALL,
         DOWNLOAD,
-        MUTE
+        MUTE,
+        NOTICE
     }
     val enabledGroup:MutableMap<Long,ProcessType> by value()
 
