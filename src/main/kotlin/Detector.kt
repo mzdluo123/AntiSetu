@@ -4,8 +4,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import io.ktor.client.engine.okhttp.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import okhttp3.OkHttpClient
@@ -15,13 +14,17 @@ import java.awt.image.PixelGrabber
 import java.io.ByteArrayInputStream
 import java.lang.IllegalArgumentException
 import java.nio.ByteBuffer
+import java.util.concurrent.Future
 import javax.imageio.ImageIO
 
 object Detector {
+    const val MULTITHREAD_LENGTH = 500
+    const val DOWNLOAD_PART = 4
 
     private val client by lazy {
         OkHttpClient()
     }
+
     suspend fun detector(img: Image): Float {
         val imageContent = downloadImg(img)
         return detector(imageContent)
@@ -88,15 +91,55 @@ object Detector {
     }
 
 
-     suspend fun downloadImg(img: Image): ByteArray {
-         PluginMain.logger.error(img.queryUrl())
+    suspend fun downloadImg(img: Image): ByteArray {
+        val url = img.queryUrl()
         return withContext(Dispatchers.IO) {
-            val req = Request.Builder().get().url(img.queryUrl()).build()
-             val rsp = client.newCall(req).execute()
-             if (rsp.isSuccessful) {
-                 return@withContext rsp.body?.byteStream()?.readAllBytes() ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
-             }
+            val rsp = client.newCall(Request.Builder().head().url(url).build()).execute()
+            if (rsp.isSuccessful) {
+                val length =
+                    rsp.header("content-length")?.toInt() ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
+                if (length >= MULTITHREAD_LENGTH) {
+                    val everyPart = length / DOWNLOAD_PART
+                    val result = ByteArray(length)
+                    val remain = length % DOWNLOAD_PART
+                    var point = 0
+                    (0..DOWNLOAD_PART).map {
+                        if (it == DOWNLOAD_PART && remain != 0) {
+                            async { downloadPart(url, it * everyPart, length) }
+                        } else {
+                            async { downloadPart(url, it * everyPart, (it+1) * everyPart -1 ) }
+                        }
+                    }.awaitAll().map {
+                        System.arraycopy(it,0,result,point,it.size)
+                        point += it.size
+                    }
+                    return@withContext result
+                } else {
+                    val imgRsp = client.newCall(Request.Builder().get().url(url).build()).execute()
+                    return@withContext imgRsp.body?.byteStream()?.readAllBytes()
+                        ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
+                }
+
+            }
             throw IllegalArgumentException("无法下载图片${img.imageId}")
-         }
+        }
+    }
+
+    private suspend fun downloadPart(url: String, start: Int, end: Int, retry: Int = 0): ByteArray {
+        PluginMain.logger.info("download bytes=${start}-${end}")
+        if (retry > 3) {
+            throw IllegalArgumentException("无法下载图片${url},bytes=${start}-${end}")
+        }
+        val rsp = withContext(Dispatchers.IO) {
+            val req = Request.Builder().get().url(url).header("Range", "bytes=${start}-${end}").build()
+            val rsp = client.newCall(req).execute()
+            return@withContext rsp.body?.byteStream()?.readAllBytes()
+        }
+        if (rsp == null) {
+            delay(500)
+            downloadPart(url, start, end, retry + 1)
+        }
+
+        return rsp!!
     }
 }
