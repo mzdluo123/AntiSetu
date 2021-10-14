@@ -18,7 +18,7 @@ import java.util.concurrent.Future
 import javax.imageio.ImageIO
 
 object Detector {
-    const val MULTITHREAD_LENGTH = 500
+    const val MULTITHREAD_LENGTH = 100*1024
     const val DOWNLOAD_PART = 4
 
     private val client by lazy {
@@ -105,9 +105,9 @@ object Detector {
                     var point = 0
                     (0..DOWNLOAD_PART).map {
                         if (it == DOWNLOAD_PART && remain != 0) {
-                            async { downloadPart(url, it * everyPart, length) }
+                            async(Dispatchers.IO) { downloadPart(url, it * everyPart, length) }
                         } else {
-                            async { downloadPart(url, it * everyPart, (it+1) * everyPart -1 ) }
+                            async(Dispatchers.IO) { downloadPart(url, it * everyPart, (it+1) * everyPart -1 ) }
                         }
                     }.awaitAll().map {
                         System.arraycopy(it,0,result,point,it.size)
