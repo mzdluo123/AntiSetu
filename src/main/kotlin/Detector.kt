@@ -32,7 +32,9 @@ object Detector {
 
     suspend fun detector(content: ByteArray): Float {
         val output = withContext(Dispatchers.Default) {
-            val scaled = scaleImg(ImageIO.read(ByteArrayInputStream(content)))
+            val scaled = ByteArrayInputStream(content).use {
+                scaleImg(ImageIO.read(it))
+            }
             val inputArray = arrayOf(imageToMatrix(scaled))
             PluginMain.session.run(
                 mapOf(
@@ -59,7 +61,6 @@ object Detector {
         val scaledImg = image.getScaledInstance(224, 224, java.awt.Image.SCALE_FAST)
         val img = BufferedImage(224, 224, BufferedImage.TYPE_INT_RGB)
         img.graphics.drawImage(scaledImg, 0, 0, null)
-        scaledImg.flush()
         return img
     }
 
