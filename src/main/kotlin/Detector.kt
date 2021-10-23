@@ -3,7 +3,6 @@ package win.rainchan.mirai.antisetu
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import io.ktor.client.engine.okhttp.*
 import kotlinx.coroutines.*
 import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
@@ -13,24 +12,34 @@ import java.awt.image.BufferedImage
 import java.awt.image.PixelGrabber
 import java.io.ByteArrayInputStream
 import java.lang.IllegalArgumentException
-import java.nio.ByteBuffer
-import java.util.concurrent.Future
 import javax.imageio.ImageIO
 
+
+data class DetectResult(
+    val drawings: Float,
+    val hentai: Float,
+    val neutral: Float,
+    val porn: Float,
+    val sexy: Float
+) {
+    val isSetu
+        get() = hentai > Config.threshold || porn > Config.threshold || sexy > Config.threshold
+}
+
 object Detector {
-    const val MULTITHREAD_LENGTH = 100*1024
+    const val MULTITHREAD_LENGTH = 100 * 1024
     const val DOWNLOAD_PART = 4
 
     private val client by lazy {
         OkHttpClient()
     }
 
-    suspend fun detector(img: Image): Float {
+    suspend fun detector(img: Image): DetectResult {
         val imageContent = downloadImg(img)
         return detector(imageContent)
     }
 
-    suspend fun detector(content: ByteArray): Float {
+    suspend fun detector(content: ByteArray): DetectResult {
         val output = withContext(Dispatchers.Default) {
             val scaled = ByteArrayInputStream(content).use {
                 scaleImg(ImageIO.read(it))
@@ -50,11 +59,11 @@ object Detector {
 
     }
 
-    private fun processOutput(result: OrtSession.Result): Float {
+    private fun processOutput(result: OrtSession.Result): DetectResult {
 
         val scoreTensor = result.first().value.value as Array<*>
         val score = scoreTensor[0] as FloatArray
-        return score[1]
+        return DetectResult(score[0], score[1], score[2], score[3], score[4])
     }
 
     private fun scaleImg(image: BufferedImage): BufferedImage {
@@ -79,9 +88,9 @@ object Detector {
         var col = 0
         while (row * width + col < pixels.size) {
             pixel = row * width + col
-            result[row][col][0] = (pixels[pixel] and 0xff) - 104f// blue
-            result[row][col][1] = (pixels[pixel] shr 8 and 0xff) - 117f  // green
-            result[row][col][2] = (pixels[pixel] shr 16 and 0xff) - 123f // red
+            result[row][col][0] = (pixels[pixel] and 0xff) / 255f// blue
+            result[row][col][1] = (pixels[pixel] shr 8 and 0xff) / 255f // green
+            result[row][col][2] = (pixels[pixel] shr 16 and 0xff) / 255f // red
             col++
             if (col == width - 1) {
                 col = 0
@@ -108,10 +117,10 @@ object Detector {
                         if (it == DOWNLOAD_PART && remain != 0) {
                             async(Dispatchers.IO) { downloadPart(url, it * everyPart, length) }
                         } else {
-                            async(Dispatchers.IO) { downloadPart(url, it * everyPart, (it+1) * everyPart -1 ) }
+                            async(Dispatchers.IO) { downloadPart(url, it * everyPart, (it + 1) * everyPart - 1) }
                         }
                     }.awaitAll().map {
-                        System.arraycopy(it,0,result,point,it.size)
+                        System.arraycopy(it, 0, result, point, it.size)
                         point += it.size
                     }
                     return@withContext result
@@ -127,7 +136,7 @@ object Detector {
     }
 
     private suspend fun downloadPart(url: String, start: Int, end: Int, retry: Int = 0): ByteArray {
-      //  PluginMain.logger.info("download bytes=${start}-${end}")
+        //  PluginMain.logger.info("download bytes=${start}-${end}")
         if (retry > 3) {
             throw IllegalArgumentException("无法下载图片${url},bytes=${start}-${end}")
         }

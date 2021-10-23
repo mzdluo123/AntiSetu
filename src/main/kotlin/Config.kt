@@ -16,6 +16,6 @@ object Config:AutoSavePluginConfig("config") {
     }
     val enabledGroup:MutableMap<Long,ProcessType> by value()
 
-    var threshold:Float by value(0.3f)
+    var threshold:Float by value(0.4f)
 
 }

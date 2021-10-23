@@ -5,17 +5,15 @@ import ai.onnxruntime.OrtSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.mamoe.mirai.console.command.CommandManager.INSTANCE.register
-import net.mamoe.mirai.console.plugin.PluginManager.INSTANCE.enable
-import net.mamoe.mirai.console.plugin.PluginManager.INSTANCE.load
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.event.GlobalEventChannel
 import net.mamoe.mirai.event.subscribeGroupMessages
 import net.mamoe.mirai.message.data.Image
+import net.mamoe.mirai.message.data.MessageSource.Key.quote
 import net.mamoe.mirai.message.data.MessageSource.Key.recall
 import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.at
-import net.mamoe.mirai.message.data.getOrFail
 import java.io.File
 
 
@@ -42,7 +40,7 @@ object PluginMain : KotlinPlugin(
         }
         Command.register()
         logger.info("初始化运行环境....")
-        val model=getResourceAsStream("model.onnx")?.use { it.readAllBytes() }
+        val model=getResourceAsStream("v2.onnx")?.use { it.readAllBytes() }
         val env = OrtEnvironment.getEnvironment()
         session = env.createSession(model)
         logger.info("初始化成功")
@@ -56,10 +54,16 @@ object PluginMain : KotlinPlugin(
                val img = message[Image] ?: return@always
                 val startTime = System.currentTimeMillis()
                 val image = Detector.downloadImg(img)
-                val score = Detector.detector(image)
-                logger.info("识别完成 ${img.imageId} 分数 $score 耗时:${System.currentTimeMillis() - startTime}ms")
-                if (score >= Config.threshold){
-                    group.sendMessage(sender.at() + PlainText("hso!😲，分数${score}"))
+                val result = Detector.detector(image)
+                logger.info("识别完成 ${img.imageId} 分数 $result 耗时:${System.currentTimeMillis() - startTime}ms")
+//                group.sendMessage(message.quote()+PlainText(score.toString()))
+                if (result.isSetu){
+                    if (result.hentai >= Config.threshold){
+                        group.sendMessage(sender.at() + PlainText("hso!😲，分数${result.hentai}"))
+                    }else{
+                        group.sendMessage(sender.at() + PlainText("口区！给爷爬！，分数${result.porn} ${result.sexy}"))
+                    }
+
                      when(processType){
                          Config.ProcessType.RECALL -> {
                              message.recall()
