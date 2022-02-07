@@ -5,17 +5,13 @@ import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.internal.data.builtins.AutoLoginConfig
 
 object Config:AutoSavePluginConfig("config") {
+    val enabled_group:MutableList<Long> by value(mutableListOf())
+    var questionable_threshold:Float by value(0.5f)
+    var explicit_threshold:Float by value(0.5f)
 
-    public enum class ProcessType{
-        DISABLED,
-        RECALL,
-        DOWNLOAD_RECALL,
-        DOWNLOAD,
-        MUTE,
-        NOTICE
-    }
-    val enabledGroup:MutableMap<Long,ProcessType> by value()
+    var questionable_recall:Boolean by value(false)
+    var explicit_recall:Boolean by value(false)
 
-    var threshold:Float by value(0.4f)
-
+    var questionable_reply:String by value("好涩哦~~~ %score%")
+    var explicit_reply:String by value("太涩啦~~~~ %score%")
 }

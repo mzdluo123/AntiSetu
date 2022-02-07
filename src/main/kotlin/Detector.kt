@@ -8,24 +8,19 @@ import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.Image.Key.queryUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.awt.Color
 import java.awt.image.BufferedImage
 import java.awt.image.PixelGrabber
 import java.io.ByteArrayInputStream
-import java.lang.IllegalArgumentException
 import javax.imageio.ImageIO
 
 
 data class DetectResult(
-    val drawings: Float,
-    val hentai: Float,
-    val neutral: Float,
-    val porn: Float,
-    val sexy: Float
-) {
-    val isSetu
-        get() = hentai > Config.threshold || porn > Config.threshold || sexy > Config.threshold
-}
+    val safe: Float,
+    val questionable: Float,
+    val explicit: Float,
 
+)
 object Detector {
     const val MULTITHREAD_LENGTH = 100 * 1024
     const val DOWNLOAD_PART = 4
@@ -42,12 +37,12 @@ object Detector {
     suspend fun detector(content: ByteArray): DetectResult {
         val output = withContext(Dispatchers.Default) {
             val scaled = ByteArrayInputStream(content).use {
-                scaleImg(ImageIO.read(it))
+                pad(ImageIO.read(it),224.0,224.0, Color.BLACK)
             }
             val inputArray = arrayOf(imageToMatrix(scaled))
             PluginMain.session.run(
                 mapOf(
-                    "input" to OnnxTensor.createTensor(
+                    "serving_default_input_1:0" to OnnxTensor.createTensor(
                         OrtEnvironment.getEnvironment(),
                         inputArray
                     )
@@ -60,17 +55,39 @@ object Detector {
     }
 
     private fun processOutput(result: OrtSession.Result): DetectResult {
-
         val scoreTensor = result.first().value.value as Array<*>
         val score = scoreTensor[0] as FloatArray
-        return DetectResult(score[0], score[1], score[2], score[3], score[4])
+        return DetectResult(score[0], score[1], score[2])
     }
 
-    private fun scaleImg(image: BufferedImage): BufferedImage {
-        val scaledImg = image.getScaledInstance(224, 224, java.awt.Image.SCALE_FAST)
-        val img = BufferedImage(224, 224, BufferedImage.TYPE_INT_RGB)
-        img.graphics.drawImage(scaledImg, 0, 0, null)
-        return img
+    fun pad(image: BufferedImage, width: Double, height: Double, pad: Color): BufferedImage {
+        val ratioW = image.width / width
+        val ratioH = image.height / height
+        var newWidth = width
+        var newHeight = height
+        var fitW = 0
+        var fitH = 0
+
+        //padding width
+        if (ratioW < ratioH) {
+            newWidth = image.width / ratioH
+            newHeight = image.height / ratioH
+            fitW = ((width - newWidth) / 2.0).toInt()
+        } //padding height
+        else if (ratioH < ratioW) {
+            newWidth = image.width / ratioW
+            newHeight = image.height / ratioW
+            fitH = ((height - newHeight) / 2.0).toInt()
+        }
+        val resize: java.awt.Image =
+            image.getScaledInstance(newWidth.toInt(), newHeight.toInt(), java.awt.Image.SCALE_SMOOTH)
+        val resultImage = BufferedImage(width.toInt(), height.toInt(), image.type)
+        val g = resultImage.graphics
+        g.color = pad
+        g.fillRect(0, 0, width.toInt(), height.toInt())
+        g.drawImage(resize, fitW, fitH, null)
+        g.dispose()
+        return resultImage
     }
 
     private fun imageToMatrix(image: BufferedImage): Array<Array<FloatArray>> {
@@ -126,8 +143,9 @@ object Detector {
                     return@withContext result
                 } else {
                     val imgRsp = client.newCall(Request.Builder().get().url(url).build()).execute()
-                    return@withContext imgRsp.body?.byteStream()?.readAllBytes()
-                        ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
+                    return@withContext imgRsp.body?.byteStream()?.use {
+                        it.readAllBytes()
+                    } ?: throw IllegalArgumentException("无法下载图片${img.imageId}")
                 }
 
             }
@@ -143,7 +161,9 @@ object Detector {
         val rsp = withContext(Dispatchers.IO) {
             val req = Request.Builder().get().url(url).header("Range", "bytes=${start}-${end}").build()
             val rsp = client.newCall(req).execute()
-            return@withContext rsp.body?.byteStream()?.readAllBytes()
+            return@withContext rsp.body?.byteStream()?.use {
+                it.readAllBytes()
+            }
         }
         if (rsp == null) {
             delay(500)
