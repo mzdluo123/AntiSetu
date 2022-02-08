@@ -50,34 +50,36 @@ object PluginMain : KotlinPlugin(
                 val result = Detector.detector(image)
                 logger.info("识别完成 ${img.imageId} 分数 $result 耗时:${System.currentTimeMillis() - startTime}ms")
                 // group.sendMessage(message.quote()+PlainText(result.toString()))
-
-                if (result.explicit >= Config.explicit_threshold) {
-
-                    group.sendMessage(
-                        message.quote() + PlainText(
-                            Config.explicit_reply.replace(
-                                "%score%",
-                                result.explicit.toString()
-                            )
-                        )
-                    )
-                    if (Config.explicit_recall) {
-                        this.message.recall()
-                    }
+                if (result.safe >= Config.safe_threshold) {
                     return@always
                 }
                 if (result.questionable >= Config.questionable_threshold) {
+                    if (result.explicit >= Config.explicit_threshold) {
 
-                    group.sendMessage(
-                        message.quote() + PlainText(
-                            Config.questionable_reply.replace(
-                                "%score%",
-                                result.questionable.toString()
+                        group.sendMessage(
+                            message.quote() + PlainText(
+                                Config.explicit_reply.replace(
+                                    "%score%",
+                                    result.explicit.toString()
+                                )
                             )
                         )
-                    )
-                    if (Config.questionable_recall) {
-                        this.message.recall()
+                        if (Config.explicit_recall) {
+                            this.message.recall()
+                        }
+                        return@always
+                    } else {
+                        group.sendMessage(
+                            message.quote() + PlainText(
+                                Config.questionable_reply.replace(
+                                    "%score%",
+                                    result.questionable.toString()
+                                )
+                            )
+                        )
+                        if (Config.questionable_recall) {
+                            this.message.recall()
+                        }
                     }
                 }
             }

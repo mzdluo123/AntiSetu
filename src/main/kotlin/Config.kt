@@ -6,6 +6,8 @@ import net.mamoe.mirai.console.internal.data.builtins.AutoLoginConfig
 
 object Config:AutoSavePluginConfig("config") {
     val enabled_group:MutableList<Long> by value(mutableListOf())
+
+    var safe_threshold:Float by value(0.5f)
     var questionable_threshold:Float by value(0.5f)
     var explicit_threshold:Float by value(0.5f)
 
