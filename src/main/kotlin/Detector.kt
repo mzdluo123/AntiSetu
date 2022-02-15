@@ -17,13 +17,13 @@ import javax.imageio.ImageIO
 
 data class DetectResult(
     val safe: Float,
-    val questionable: Float,
     val explicit: Float,
 
 )
 object Detector {
     const val MULTITHREAD_LENGTH = 100 * 1024
     const val DOWNLOAD_PART = 4
+    const val INPUT_SIZE = 512
 
     private val client by lazy {
         OkHttpClient()
@@ -37,7 +37,7 @@ object Detector {
     suspend fun detector(content: ByteArray): DetectResult {
         val output = withContext(Dispatchers.Default) {
             val scaled = ByteArrayInputStream(content).use {
-                pad(ImageIO.read(it),224.0,224.0, Color.BLACK)
+                pad(ImageIO.read(it), INPUT_SIZE.toDouble(),INPUT_SIZE.toDouble(), Color.BLACK)
             }
             val inputArray = arrayOf(imageToMatrix(scaled))
             PluginMain.session.run(
@@ -57,7 +57,7 @@ object Detector {
     private fun processOutput(result: OrtSession.Result): DetectResult {
         val scoreTensor = result.first().value.value as Array<*>
         val score = scoreTensor[0] as FloatArray
-        return DetectResult(score[0], score[1], score[2])
+        return DetectResult(score[0], score[1])
     }
 
     fun pad(image: BufferedImage, width: Double, height: Double, pad: Color): BufferedImage {

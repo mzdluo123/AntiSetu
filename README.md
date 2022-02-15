@@ -8,21 +8,21 @@ V3全新升级版，在`danbooru`的十万张图片上进行了训练，但仅�
 
 # 使用方式
 
+请先到release下载模型文件
+
 插件不包括任何指令，配置文件含义如下
 
 ```yml
+# 模型路径
+model_path: 
 # 启用的群
 enabled_group: 
   - 群号
-# questionable等级的阈值
-questionable_threshold: 0.5
-# 同上，explicit等级要比上面的等级更加se
+# explicit等级的阈值
 explicit_threshold: 0.5
 # 是否撤回
-questionable_recall: true
 explicit_recall: true
 # 回复内容
-questionable_reply: '好涩哦~~~ %score%'
 explicit_reply: '太涩啦~~~~ %score%'
 ```
 

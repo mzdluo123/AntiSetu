@@ -10,6 +10,8 @@ import net.mamoe.mirai.message.data.Image
 import net.mamoe.mirai.message.data.MessageSource.Key.quote
 import net.mamoe.mirai.message.data.MessageSource.Key.recall
 import net.mamoe.mirai.message.data.PlainText
+import java.io.File
+import java.lang.RuntimeException
 import kotlin.math.roundToInt
 
 
@@ -35,7 +37,11 @@ object PluginMain : KotlinPlugin(
 //            imageFolder.mkdir()
 //        }
         logger.info("初始化运行环境....")
-        val model = getResourceAsStream("v3.onnx")?.use { it.readAllBytes() }
+        val modelFile = File(Config.model_path)
+        if (!modelFile.exists()){
+            throw RuntimeException("未找到模型文件，请检查配置文件中的 model_path")
+        }
+        val model = modelFile.inputStream().use { it.readAllBytes() }
         val env = OrtEnvironment.getEnvironment()
         session = env.createSession(model)
         logger.info("初始化成功")
@@ -50,41 +56,21 @@ object PluginMain : KotlinPlugin(
                 val result = Detector.detector(image)
                 logger.info("识别完成 ${img.imageId} 分数 $result 耗时:${System.currentTimeMillis() - startTime}ms")
                 // group.sendMessage(message.quote()+PlainText(result.toString()))
-                if (result.safe >= Config.safe_threshold) {
-                    return@always
-                }
-                if (result.questionable >= Config.questionable_threshold) {
-                    if (result.explicit >= Config.explicit_threshold) {
-
-                        group.sendMessage(
-                            message.quote() + PlainText(
-                                Config.explicit_reply.replace(
-                                    "%score%",
-                                    result.explicit.toString()
-                                )
+                if (result.explicit >= Config.explicit_threshold) {
+                    group.sendMessage(
+                        message.quote() + PlainText(
+                            Config.explicit_reply.replace(
+                                "%score%",
+                                result.explicit.toString()
                             )
                         )
-                        if (Config.explicit_recall) {
-                            this.message.recall()
-                        }
-                        return@always
-                    } else {
-                        group.sendMessage(
-                            message.quote() + PlainText(
-                                Config.questionable_reply.replace(
-                                    "%score%",
-                                    result.questionable.toString()
-                                )
-                            )
-                        )
-                        if (Config.questionable_recall) {
-                            this.message.recall()
-                        }
+                    )
+                    if (Config.explicit_recall) {
+                        this.message.recall()
                     }
+                    return@always
                 }
             }
         }
     }
-
-
 }
