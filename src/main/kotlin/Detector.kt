@@ -42,7 +42,7 @@ object Detector {
             val inputArray = arrayOf(imageToMatrix(scaled))
             PluginMain.session.run(
                 mapOf(
-                    "serving_default_input_1:0" to OnnxTensor.createTensor(
+                    "serving_default_model_1_input:0" to OnnxTensor.createTensor(
                         OrtEnvironment.getEnvironment(),
                         inputArray
                     )

@@ -19,7 +19,7 @@ object PluginMain : KotlinPlugin(
     JvmPluginDescription(
         id = "win.rainchan.mirai.antisetuv3",
         name = "AntiStuV3",
-        version = "0.0.2"
+        version = "0.0.3"
     ) {
         author("RainChan")
         info("简单的反Setu插件 V2")
